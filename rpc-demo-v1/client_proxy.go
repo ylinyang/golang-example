@@ -1,4 +1,4 @@
-package rpc_demo_v1
+package main
 
 import (
 	"log"
