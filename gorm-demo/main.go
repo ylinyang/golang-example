@@ -48,10 +48,83 @@ type Student struct {
 //	return nil
 //}
 
+// User 用户表
+type User struct {
+	Id       uint
+	Name     string
+	Articles []Article `gorm:"foreignKey:UserId"`
+}
+
+// Article 文章列表
+type Article struct {
+	Id     uint
+	Title  string
+	UserId uint
+	User   User `gorm:"foreignKey:UserId"`
+}
+
 func main() {
 	InitDB()
-	//DB.AutoMigrate(&Student{})
-	where()
+	//DB.AutoMigrate(&Article{}, &User{})
+	// 单纯创建
+	//DB.Debug().Create(&User{
+	//	Name: "张三",
+	//	Articles: []Article{
+	//		{
+	//			Title: "golang",
+	//		},
+	//		{
+	//			Title: "python",
+	//		},
+	//	},
+	//})
+
+	//	 创建关联已有表内容
+	//DB.Debug().Create(&Article{
+	//	Title: "测试001",
+	//	User: User{
+	//		Name: "张三",
+	//	},
+	//})
+	//DB.Debug().Create(&Article{
+	//	Title:  "测试002",
+	//	UserId: 2,
+	//})
+	// 给已有用户绑定文章
+	//var User User
+	//DB.Take(&User, 1)
+	//var article Article
+	//DB.Take(&article, 6)
+	//DB.Model(&User).Association("Articles").Append(&article)
+	////	 预加载
+	//var article Article
+	//DB.Preload("User").Take(&article)
+	//fmt.Println(article) // {1 golang 1 {1 张三 []}}
+	// 查询某个用户下面有多少个文章
+	//var user User
+	//// 查询全部用户的
+	//DB.Preload("Articles").Take(&user)
+	//// 查询文章id小于2的
+	//DB.Preload("Articles", "id < ?", 2).Take(&user)
+	//
+	//// 等价于 如下
+	//DB.Preload("Articles", func(db *gorm.DB) *gorm.DB {
+	//	return db.Where("id < ? ", 2)
+	//}).Take(&user)
+	//fmt.Println(user)
+
+	// 清楚外键关联，并不会真正删除数据
+	// 删除用户，删除相关文章的用户ID
+	//var user User
+	//DB.Preload("Articles").Take(&user, 2)
+	//fmt.Println(user)
+	//DB.Model(&user).Association("Articles").Delete(&user.Articles)
+	//	DB.Delete(&user)
+
+	// 通过select用户数据和文章数据都会被删除
+	var user User
+	DB.Preload("Articles").Take(&user, 1)
+	DB.Select("Articles").Delete(&user)
 }
 
 // 插入单条、多条记录
@@ -175,6 +248,7 @@ func deleteData() {
 	DB.Debug().Delete(&student, []int{2, 5}) // DELETE FROM `tb_student` WHERE `tb_student`.`id` IN (2,5)
 }
 
+// 条件查询
 func where() {
 	//	 查询用户名是张三的
 	//var studentList []Student
@@ -198,10 +272,111 @@ func where() {
 	//	DB.Debug().Where("name like ?", "杨_").Find(&studentList) // SELECT * FROM `tb_student` WHERE name like '杨_'
 
 	// 查找age大于20，且邮箱是qq的
-	var studentList []Student
-	DB.Debug().Where("age > ? and email like ?", 22, "%@qq.com").Find(&studentList) // SELECT * FROM `tb_student` WHERE age > 22 and email like '%@qq.com'
-	fmt.Println(studentList)
+	// var studentList []Student
+	//DB.Debug().Where("age > ? and email like ?", 22, "%@qq.com").Find(&studentList) // SELECT * FROM `tb_student` WHERE age > 22 and email like '%@qq.com'
+	//DB.Where("age > ?", 22).Where("email like ?", "%@qq.com").Find(&studentList)
 
+	// 查询gender 为false，且邮箱是qq的
+	//var studentList []Student
+	// 	DB.Debug().Where("gender = ? or email like ?", false, "%@qq.com").Find(&studentList) // SELECT * FROM `tb_student` WHERE gender = false or email like '%@qq.com'
+	//DB.Where("gender = ?", false).Or("email like ?", "%qq@.com").Find(&studentList)
+
+	// 使用结构体查询
+	//var studentList []Student
+	//DB.Debug().Where(&Student{Name: "张三"}).Find(&studentList) // SELECT * FROM `tb_student` WHERE `tb_student`.`name` = '张三'
+	//DB.Debug().Where(map[string]any{
+	//	"name": "张三",
+	//	"age":  "99",
+	//}).Find(&studentList)
+
+	//var studentList []Student
+	//DB.Debug().Select("name").Find(&studentList) // SELECT `name` FROM `tb_student`
+	//fmt.Println(studentList) // [{0 张三 0 false <nil>} {0 李四 0 false <nil>}]
+
+	// scan 语法
+	//var studentList []Student
+	//type User struct {
+	//	Name string
+	//	Age  int
+	//}
+	//var userList []User
+	//DB.Debug().Select("name", "age").Limit(2).Find(&studentList).Scan(&userList)
+	//// SELECT `name`,`age` FROM `tb_student` LIMIT 2
+	//fmt.Println(studentList) //[{0 张三 20 false <nil>} {0 李四 22 false <nil>}]
+	//fmt.Println(userList)    // [{张三 20} {李四 22}]
+	//type User struct {
+	//	Title string `gorm:"column:name"`
+	//	Age   int
+	//}
+	//var userList []User
+	//DB.Model(Student{}).Select("name", "age").Scan(&userList)
+	//fmt.Println(userList)
+
+	// 按照年龄排序 desc 降序 asc 升序
+	//var studentList []Student
+	//DB.Debug().Order("age desc").Find(&studentList)
+
+	//var studentList []Student
+	// 每页两条数据  查询第一页
+	//DB.Debug().Limit(2).Offset(0).Find(&studentList) // SELECT * FROM `tb_student` LIMIT 2
+	// 每页两条数据 查询第二页  offset 为 (页数 - 1) * 查询条数
+	//DB.Debug().Limit(2).Offset(2).Find(&studentList) //  SELECT * FROM `tb_student` LIMIT 2 OFFSET 2
+	//fmt.Println(studentList) // [{5 杨四 99 true 0x14000220ac0} {4 杨七一 24 false 0x14000220ae0} {3 老五 23 false 0x14000220b00}]
+
+	// 按照年龄去重  Distinct去除重复字段
+	//var ageList []int
+	//DB.Debug().Model(Student{}).Select("age").Distinct("age").Scan(&ageList) // SELECT DISTINCT `age` FROM `tb_student`
+	//DB.Debug().Model(Student{}).Select("Distinct age").Scan(&ageList)
+	//fmt.Println(ageList)
+
+	// 将 gender 统计分组
+	//type Group struct {
+	//	Count    int
+	//	Gender   string
+	//	NameList string
+	//}
+	//var groupList []Group
+	//DB.Model(Student{}).Select("group_concat(name) as name_list", "count(id) as count", "gender").Group("gender").Scan(&groupList)
+	//fmt.Println(groupList) // [{4 0 张三,李四,老五,杨七一} {1 1 杨四}]
+
+	//type Name struct {
+	//	Count int `gorm:"column:count(id)"`
+	//	Name  string
+	//}
+	//var nameList []Name
+	//DB.Model(Student{}).Select("count(id)", "name").Group("name").Scan(&nameList)
+	//fmt.Println(nameList)
+
+	// 执行原生sql
+	//var studentList []Student
+	//DB.Debug().Raw("select * from tb_student where name =?", "张三").Find(&studentList) // select * from tb_student where name ='张三'
+
+	//	查询大于平均年龄的用户
+	//var studentList []Student
+	//DB.Debug().Where("age > (?)", DB.Model(Student{}).Select("avg(age)")).Find(&studentList) // SELECT * FROM `tb_student` WHERE age > (SELECT avg(age) FROM `tb_student`)
+
+	// 命名参数
+	//var student Student
+	//DB.Debug().Take(&student, "name = @name and age = @age", sql.Named("name", "杨七一"), sql.Named("age", "24")) // SELECT * FROM `tb_student` WHERE name = '杨七一' and age = '24' LIMIT 1
+
+	//var student Student
+	//DB.Debug().Take(&student, map[string]any{
+	//	"name": "张三",
+	//	"age":  20,
+	//})
+	//fmt.Println(student) // {2 李四 22 false 0x1400021eb30}
+
+	//var res []map[string]any
+	//DB.Debug().Model(&Student{}).Where("age = 20").Find(&res)
+	//fmt.Println(res) // [map[age:20 email:0x14000220ad0 gender:false id:1 name:张三] map[age:20 email:0x14000220b00 gender:true id:5 name:杨四]]
+
+	//	查询年龄大于20的
+	var res []map[string]any
+	DB.Debug().Model(Student{}).Scopes(age).Find(&res) // SELECT * FROM `tb_student` WHERE age > 20
+}
+
+func age(db *gorm.DB) *gorm.DB {
+	return db.Where("age > ?", 20)
 }
 
 /*
