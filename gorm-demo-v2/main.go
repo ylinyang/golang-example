@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 	"log"
+	"time"
 )
 
 var DB *gorm.DB
@@ -48,14 +49,38 @@ type UserInfo struct {
 	Like   string
 }
 type Tag struct {
-	ID       uint
-	Name     string
-	Articles []Article `gorm:"many2many:article_tags;"` // 用于反向引用
+	ID   uint
+	Name string
+	//Articles []Article `gorm:"many2many:article_tags;"` // 用于反向引用
 }
 type Article struct {
 	ID    uint
 	Title string
 	Tags  []Tag `gorm:"many2many:article_tags;"`
+}
+
+type ArticleTag struct {
+	ArticleID uint `gorm:"primaryKey"`
+	TagID     uint `gorm:"primaryKey"`
+	CreateAt  time.Time
+}
+
+type ArticleModel struct {
+	ID    uint
+	Title string
+	Tags  []TagModel `gorm:"many2many:article_tags;joinForeignKey:ArticleID;JoinReferences:TagID"`
+}
+
+type TagModel struct {
+	ID       uint
+	Name     string
+	Articles []ArticleModel `gorm:"many2many:article_tags;joinForeignKey:TagID;JoinReferences:ArticleID"` // 用于反向引用
+}
+
+type ArticleTagModel struct {
+	ArticleID uint `gorm:"primaryKey"`
+	TagID     uint `gorm:"primaryKey"`
+	CreateAt  time.Time
 }
 
 func main() {
@@ -84,7 +109,7 @@ func main() {
 	//DB.Debug().Select("UserInfo").Delete(&u)
 	// DELETE FROM `tb_user_info` WHERE `tb_user_info`.`user_id` = 2
 	// DELETE FROM `tb_user` WHERE `tb_user`.`id` = 2
-	DB.AutoMigrate(&Tag{}, &Article{})
+	//DB.AutoMigrate(&Tag{}, &Article{})
 	// 多对多的添加
 	//DB.Debug().Create(&Article{
 	//	Title: "golang学习",
@@ -108,4 +133,41 @@ func main() {
 	//DB.Create(&Article{Title: "python基础", Tags: tags})
 
 	//	查询文章，同时显示标签
+	//var a Article
+	//DB.Debug().Preload("Tags").Take(&a)
+	// SELECT * FROM `tb_article_tags` WHERE `tb_article_tags`.`article_id` = 1
+	// SELECT * FROM `tb_tag` WHERE `tb_tag`.`id` IN (1,2)
+	// SELECT * FROM `tb_article` LIMIT 1
+	//fmt.Println(a.Tags)
+	//for _, tag := range a.Tags {
+	//	fmt.Println(tag.Name)
+	//}
+	//marshal, _ := json.Marshal(&a.Tags)
+	//fmt.Println(string(marshal))
+
+	// 多对多的更新
+	// 先删除原有的标签
+	//var article Article
+	//DB.Preload("Tags").Take(&article, 1)
+	//DB.Model(&article).Association("Tags").Delete(article.Tags)
+
+	// 在添加新的标签
+	//var tag Tag
+	//DB.Take(&tag, "1")
+	//DB.Model(&article).Association("Tags").Append(&tag)
+
+	// 直接替换标签
+	//var article Article
+	//DB.Preload("Tags").Take(&article, 1)
+	//var tag Tag
+	//DB.Take(&tag, "3")
+	//DB.Model(&article).Association("Tags").Replace(&tag)
+
+	//// 设置Article的Tag表为ArticleTag
+	//DB.SetupJoinTable(&ArticleModel{}, "Tags", &ArticleTagModel{})
+	//// 如果Tag要反向引用Articles，也需要加上
+	//DB.SetupJoinTable(&TagModel{}, "Articles", &ArticleTagModel{})
+	//if err := DB.AutoMigrate(&ArticleModel{}, &TagModel{}, &ArticleTagModel{}); err != nil {
+	//	log.Panic(err)
+	//}
 }
